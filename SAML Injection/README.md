@@ -1,30 +1,36 @@
 # SAML Injection
 
-> Security Assertion Markup Language (SAML) is an open standard that allows security credentials to be shared by multiple computers across a network. When using SAML-based Single Sign-On (SSO), three distinct parties are involved. There is a user (the so-called principal), an IDentity Provider (IDP), and a cloud application Service Provider (SP).  - centrify
+> SAML (Security Assertion Markup Language) is an open standard for exchanging authentication and authorization data between parties, in particular, between an identity provider and a service provider. While SAML is widely used to facilitate single sign-on (SSO) and other federated authentication scenarios, improper implementation or misconfiguration can expose systems to various vulnerabilities.
+
 
 ## Summary
 
 * [Tools](#tools)
-* [Authentication Bypass](#authentication-bypass)
-  * [Invalid Signature](#invalid-signature)
-  * [Signature Stripping](#signature-stripping)
-  * [XML Signature Wrapping Attacks](#xml-signature-wrapping-attacks)
-  * [XML Comment Handling](#xml-comment-handling)
-  * [XML External Entity](#xml-external-entity)
-  * [Extensible Stylesheet Language Transformation](#extensible-stylesheet-language-transformation)
+* [Methodology](#methodology)
+    * [Invalid Signature](#invalid-signature)
+    * [Signature Stripping](#signature-stripping)
+    * [XML Signature Wrapping Attacks](#xml-signature-wrapping-attacks)
+    * [XML Comment Handling](#xml-comment-handling)
+    * [XML External Entity](#xml-external-entity)
+    * [Extensible Stylesheet Language Transformation](#extensible-stylesheet-language-transformation)
+* [References](#references)
+
 
 ## Tools
 
-- [SAML Raider - Burp Extension](https://github.com/SAMLRaider/SAMLRaider)
-- [SAML Support - ZAP Addon](https://www.zaproxy.org/docs/desktop/addons/saml-support/)
+- [CompassSecurity/SAMLRaider](https://github.com/SAMLRaider/SAMLRaider) - SAML2 Burp Extension.
+- [ZAP Addon/SAML Support](https://www.zaproxy.org/docs/desktop/addons/saml-support/) - Allows to detect, show, edit, and fuzz SAML requests.
 
-## Authentication Bypass
+
+## Methodology
 
 A SAML Response should contain the `<samlp:Response xmlns:samlp="urn:oasis:names:tc:SAML:2.0:protocol"`.
+
 
 ### Invalid Signature
 
 Signatures which are not signed by a real CA are prone to cloning. Ensure the signature is signed by a real CA. If the certificate is self-signed, you may be able to clone the certificate or create your own self-signed certificate to replace it.
+
 
 ### Signature Stripping
 
@@ -63,25 +69,26 @@ Example of SAML assertion where `NameID=admin` without signature.
 </saml2p:Response>
 ```
 
+
 ### XML Signature Wrapping Attacks
 
 XML Signature Wrapping (XSW) attack, some implementations check for a valid signature and match it to a valid assertion, but do not check for multiple assertions, multiple signatures, or behave differently depending on the order of assertions.
 
-- XSW1 – Applies to SAML Response messages. Add a cloned unsigned copy of the Response after the existing signature.
-- XSW2 – Applies to SAML Response messages. Add a cloned unsigned copy of the Response before the existing signature.
-- XSW3 – Applies to SAML Assertion messages. Add a cloned unsigned copy of the Assertion before the existing Assertion.
-- XSW4 – Applies to SAML Assertion messages. Add a cloned unsigned copy of the Assertion within the existing Assertion.
-- XSW5 – Applies to SAML Assertion messages. Change a value in the signed copy of the Assertion and adds a copy of the original Assertion with the signature removed at the end of the SAML message.
-- XSW6 – Applies to SAML Assertion messages. Change a value in the signed copy of the Assertion and adds a copy of the original Assertion with the signature removed after the original signature.
-- XSW7 – Applies to SAML Assertion messages. Add an “Extensions” block with a cloned unsigned assertion.
-- XSW8 – Applies to SAML Assertion messages. Add an “Object” block containing a copy of the original assertion with the signature removed.
+- **XSW1**: Applies to SAML Response messages. Add a cloned unsigned copy of the Response after the existing signature.
+- **XSW2**: Applies to SAML Response messages. Add a cloned unsigned copy of the Response before the existing signature.
+- **XSW3**: Applies to SAML Assertion messages. Add a cloned unsigned copy of the Assertion before the existing Assertion.
+- **XSW4**: Applies to SAML Assertion messages. Add a cloned unsigned copy of the Assertion within the existing Assertion.
+- **XSW5**: Applies to SAML Assertion messages. Change a value in the signed copy of the Assertion and adds a copy of the original Assertion with the signature removed at the end of the SAML message.
+- **XSW6**: Applies to SAML Assertion messages. Change a value in the signed copy of the Assertion and adds a copy of the original Assertion with the signature removed after the original signature.
+- **XSW7**: Applies to SAML Assertion messages. Add an “Extensions” block with a cloned unsigned assertion.
+- **XSW8**: Applies to SAML Assertion messages. Add an “Object” block containing a copy of the original assertion with the signature removed.
 
 
 In the following example, these terms are used.
 
-- FA: Forged Assertion
-- LA: Legitimate Assertion
-- LAS: Signature of the Legitimate Assertion
+- **FA**: Forged Assertion
+- **LA**: Legitimate Assertion
+- **LAS**: Signature of the Legitimate Assertion
 
 ```xml
 <SAMLResponse>
@@ -122,6 +129,7 @@ Researchers have noticed that if an attacker inserts a comment inside the userna
             <NameID>user@user.com<!--XMLCOMMENT-->.evil.com</NameID>
 ```
 Where `user@user.com` is the first part of the username, and `.evil.com` is the second.
+
 
 ### XML External Entity
 
@@ -184,17 +192,17 @@ Picture from [http://sso-attacks.org/XSLT_Attack](http://sso-attacks.org/XSLT_At
 </ds:Signature>
 ```
 
+
 ## References
 
-- [SAML Burp Extension - ROLAND BISCHOFBERGER - JULY 24, 2015](https://blog.compass-security.com/2015/07/saml-burp-extension/)
-- [The road to your codebase is paved with forged assertions - @ilektrojohn - March 13, 2017](http://www.economyofmechanism.com/github-saml)
-- [SAML_Security_Cheat_Sheet.md - OWASP](https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/SAML_Security_Cheat_Sheet.md)
-- [On Breaking SAML: Be Whoever You Want to Be - Juraj Somorovsky, Andreas Mayer, Jorg Schwenk, Marco Kampmann, and Meiko Jensen](https://www.usenix.org/system/files/conference/usenixsecurity12/sec12-final91-8-23-12.pdf)
-- [Making Headlines: SAML - March 19, 2018 - Torsten George](https://blog.centrify.com/saml/)
-- [Vulnerability Note VU#475445 - 2018-02-27 - Carnegie Mellon University](https://www.kb.cert.org/vuls/id/475445/)
-- [ORACLE WEBLOGIC - MULTIPLE SAML VULNERABILITIES (CVE-2018-2998/CVE-2018-2933) - Denis Andzakovic - Jul 18, 2018](https://pulsesecurity.co.nz/advisories/WebLogic-SAML-Vulnerabilities)
-- [Truncation of SAML Attributes in Shibboleth 2 - 2018-01-15 - redteam-pentesting.de](https://www.redteam-pentesting.de/de/advisories/rt-sa-2017-013/-truncation-of-saml-attributes-in-shibboleth-2)
-- [Attacking SSO: Common SAML Vulnerabilities and Ways to Find Them - March 7th, 2017 - Jem Jensen](https://blog.netspi.com/attacking-sso-common-saml-vulnerabilities-ways-find/)
-- [How to Hunt Bugs in SAML; a Methodology - Part I - @epi052](https://epi052.gitlab.io/notes-to-self/blog/2019-03-07-how-to-test-saml-a-methodology/)
-- [How to Hunt Bugs in SAML; a Methodology - Part II - @epi052](https://epi052.gitlab.io/notes-to-self/blog/2019-03-13-how-to-test-saml-a-methodology-part-two/)
-- [How to Hunt Bugs in SAML; a Methodology - Part III - @epi052](https://epi052.gitlab.io/notes-to-self/blog/2019-03-16-how-to-test-saml-a-methodology-part-three/)
+- [Attacking SSO: Common SAML Vulnerabilities and Ways to Find Them - Jem Jensen - March 7, 2017](https://blog.netspi.com/attacking-sso-common-saml-vulnerabilities-ways-find/)
+- [How to Hunt Bugs in SAML; a Methodology - Part I - Ben Risher (@epi052) - March 7, 2019](https://epi052.gitlab.io/notes-to-self/blog/2019-03-07-how-to-test-saml-a-methodology/)
+- [How to Hunt Bugs in SAML; a Methodology - Part II - Ben Risher (@epi052) - March 13, 2019](https://epi052.gitlab.io/notes-to-self/blog/2019-03-13-how-to-test-saml-a-methodology-part-two/)
+- [How to Hunt Bugs in SAML; a Methodology - Part III - Ben Risher (@epi052) - March 16, 2019](https://epi052.gitlab.io/notes-to-self/blog/2019-03-16-how-to-test-saml-a-methodology-part-three/)
+- [On Breaking SAML: Be Whoever You Want to Be - Juraj Somorovsky, Andreas Mayer, Jorg Schwenk, Marco Kampmann, and Meiko Jensen - August 23, 2012](https://www.usenix.org/system/files/conference/usenixsecurity12/sec12-final91-8-23-12.pdf)
+- [Oracle Weblogic - Multiple SAML Vulnerabilities (CVE-2018-2998/CVE-2018-2933) - Denis Andzakovic - July 18, 2018](https://pulsesecurity.co.nz/advisories/WebLogic-SAML-Vulnerabilities)
+- [SAML Burp Extension - Roland Bischofberger - July 24, 2015](https://blog.compass-security.com/2015/07/saml-burp-extension/)
+- [SAML Security Cheat Sheet - OWASP - February 2, 2019](https://github.com/OWASP/CheatSheetSeries/blob/master/cheatsheets/SAML_Security_Cheat_Sheet.md)
+- [The road to your codebase is paved with forged assertions - Ioannis Kakavas (@ilektrojohn) - March 13, 2017](http://www.economyofmechanism.com/github-saml)
+- [Truncation of SAML Attributes in Shibboleth 2 - redteam-pentesting.de - January 15, 2018](https://www.redteam-pentesting.de/de/advisories/rt-sa-2017-013/-truncation-of-saml-attributes-in-shibboleth-2)
+- [Vulnerability Note VU#475445 - Garret Wassermann - February 27, 2018](https://www.kb.cert.org/vuls/id/475445/)

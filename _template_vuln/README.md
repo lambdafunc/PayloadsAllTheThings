@@ -4,17 +4,19 @@
 
 ## Summary
 
-- [Tools](#tools)
-* [Something](#something)
-  * [Subentry 1](#sub1)
-  * [Subentry 2](#sub2)
+* [Tools](#tools)
+* [Methodology](#methodology)
+    * [Subentry 1](#subentry-1)
+    * [Subentry 2](#subentry-2)
+* [Labs](#labs)
+* [References](#references)
 
 ## Tools
 
-- [Tool 1](https://example.com)
-- [Tool 2](https://example.com)
+* [username/tool1](https://github.com/username/tool1) - Description of the tool
+* [username/tool2](https://github.com/username/tool2) - Description of the tool
 
-## Something
+## Methodology
 
 Quick explanation
 
@@ -22,6 +24,16 @@ Quick explanation
 Exploit
 ```
 
+### Subentry 1
+
+### Subentry 2
+
+## Labs
+
+* [Root Me - Lab 1](https://root-me.org)
+* [PortSwigger - Lab 2](https://portswigger.net)
+* [HackTheBox - Lab 3](https://www.hackthebox.com)
+
 ## References
 
-- [Blog title - Author, Date](https://example.com)
+* [Blog title - Author (@handle) - Month XX, 202X](https://example.com)
